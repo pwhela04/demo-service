@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UserController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
+
+// Public routes (no authentication required)
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/users', [UserController::class, 'store']); // User registration
+
+// Auth routes
+Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('/me', [AuthController::class, 'me']);
+
+// User management routes (temporarily without authentication for testing)
+Route::get('/users', [UserController::class, 'index']);
+Route::get('/users/{id}', [UserController::class, 'show']);
+Route::put('/users/{id}', [UserController::class, 'update']);
+Route::patch('/users/{id}', [UserController::class, 'update']);
+Route::delete('/users/{id}', [UserController::class, 'destroy']);
