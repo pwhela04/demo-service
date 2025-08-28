@@ -27,34 +27,15 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Get users from file storage
-        $storageFile = storage_path('app/users.json');
-        $users = [];
-        if (file_exists($storageFile)) {
-            $data = file_get_contents($storageFile);
-            $users = json_decode($data, true) ?: [];
-        }
-        
-        $user = null;
-        foreach ($users as $u) {
-            if ($u['email'] === $request->email && Hash::check($request->password, $u['password'])) {
-                $user = $u;
-                break;
-            }
-        }
-
-        if (!$user) {
+        if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid credentials'
             ], 401);
         }
 
-        // Create a simple token (in a real app, you'd use Sanctum)
-        $token = 'token_' . $user['id'] . '_' . time();
-
-        // Remove password from response
-        unset($user['password']);
+        $user = User::where('email', $request->email)->first();
+        $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -71,7 +52,8 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        // In a real app, you'd revoke the Sanctum token
+        $request->user()->currentAccessToken()->delete();
+
         return response()->json([
             'success' => true,
             'message' => 'Logout successful'
@@ -83,17 +65,9 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
-        // For demo purposes, return a mock user
-        // In a real app, you'd get the user from the Sanctum token
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => 1,
-                'name' => 'Demo User',
-                'email' => 'demo@example.com',
-                'created_at' => now()->toISOString(),
-                'updated_at' => now()->toISOString(),
-            ]
+            'data' => $request->user()
         ]);
     }
 } 

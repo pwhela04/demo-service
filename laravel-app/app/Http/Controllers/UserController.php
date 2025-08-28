@@ -10,36 +10,15 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    private $storageFile;
-
-    public function __construct()
-    {
-        $this->storageFile = storage_path('app/users.json');
-    }
-
-    private function getUsers()
-    {
-        if (!file_exists($this->storageFile)) {
-            return [];
-        }
-        $data = file_get_contents($this->storageFile);
-        return json_decode($data, true) ?: [];
-    }
-
-    private function saveUsers($users)
-    {
-        file_put_contents($this->storageFile, json_encode($users, JSON_PRETTY_PRINT));
-    }
-
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $users = $this->getUsers();
+        $users = User::all();
         return response()->json([
             'success' => true,
-            'data' => array_values($users)
+            'data' => $users
         ]);
     }
 
@@ -50,7 +29,7 @@ class UserController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
         ]);
 
@@ -61,41 +40,16 @@ class UserController extends Controller
             ], 422);
         }
 
-        $users = $this->getUsers();
-        $nextId = count($users) + 1;
-
-        // Check if email already exists
-        foreach ($users as $user) {
-            if ($user['email'] === $request->email) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => [
-                        'email' => ['The email has already been taken.']
-                    ]
-                ], 422);
-            }
-        }
-
-        $user = [
-            'id' => $nextId,
+        $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'created_at' => now()->toISOString(),
-            'updated_at' => now()->toISOString(),
-        ];
-
-        $users[$nextId] = $user;
-        $this->saveUsers($users);
-
-        // Remove password from response
-        $userResponse = $user;
-        unset($userResponse['password']);
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'User created successfully',
-            'data' => $userResponse
+            'data' => $user
         ], 201);
     }
 
@@ -104,17 +58,14 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $users = $this->getUsers();
+        $user = User::find($id);
         
-        if (!isset($users[$id])) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found'
             ], 404);
         }
-
-        $user = $users[$id];
-        unset($user['password']);
 
         return response()->json([
             'success' => true,
@@ -127,9 +78,9 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $users = $this->getUsers();
+        $user = User::find($id);
         
-        if (!isset($users[$id])) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found'
@@ -138,7 +89,14 @@ class UserController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255',
+            'email' => [
+                'sometimes',
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->ignore($user->id),
+            ],
             'password' => 'sometimes|required|string|min:8',
         ]);
 
@@ -149,46 +107,26 @@ class UserController extends Controller
             ], 422);
         }
 
-        $user = $users[$id];
-
-        // Check if email already exists (excluding current user)
-        if ($request->has('email') && $request->email !== $user['email']) {
-            foreach ($users as $existingUser) {
-                if ($existingUser['email'] === $request->email) {
-                    return response()->json([
-                        'success' => false,
-                        'errors' => [
-                            'email' => ['The email has already been taken.']
-                        ]
-                    ], 422);
-                }
-            }
-        }
-
+        $updateData = [];
+        
         if ($request->has('name')) {
-            $user['name'] = $request->name;
+            $updateData['name'] = $request->name;
         }
         
         if ($request->has('email')) {
-            $user['email'] = $request->email;
+            $updateData['email'] = $request->email;
         }
         
         if ($request->has('password')) {
-            $user['password'] = Hash::make($request->password);
+            $updateData['password'] = Hash::make($request->password);
         }
 
-        $user['updated_at'] = now()->toISOString();
-        $users[$id] = $user;
-        $this->saveUsers($users);
-
-        // Remove password from response
-        $userResponse = $user;
-        unset($userResponse['password']);
+        $user->update($updateData);
 
         return response()->json([
             'success' => true,
             'message' => 'User updated successfully',
-            'data' => $userResponse
+            'data' => $user
         ]);
     }
 
@@ -197,23 +135,20 @@ class UserController extends Controller
      */
     public function destroy($id)
     {
-        $users = $this->getUsers();
+        $user = User::find($id);
         
-        if (!isset($users[$id])) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found'
             ], 404);
         }
 
-        unset($users[$id]);
-        $this->saveUsers($users);
+        $user->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'User deleted successfully'
         ]);
     }
-
-
 } 
