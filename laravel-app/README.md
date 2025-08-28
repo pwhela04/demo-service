@@ -1,14 +1,18 @@
-# Laravel User Management API Service
+# Laravel User Management & Blog API Service
 
-A Laravel-based REST API service for user management with authentication using Laravel Sanctum.
+A Laravel-based REST API service for user management and blog posts with authentication using Laravel Sanctum.
 
 ## Features
 
 - User registration and authentication
 - User CRUD operations (Create, Read, Update, Delete)
+- Blog post CRUD operations (Create, Read, Update, Delete)
 - API token-based authentication using Laravel Sanctum
 - Input validation and error handling
 - JSON API responses
+- Blog post status management (draft/published)
+- Automatic slug generation
+- User ownership validation for blog posts
 
 ## API Endpoints
 
@@ -102,6 +106,55 @@ DELETE /api/users/{id}
 POST /api/logout
 ```
 
+### Blog Post Endpoints (Authentication Required)
+
+#### 9. Get All Blog Posts
+```
+GET /api/blog-posts
+```
+**Query Parameters:**
+- `status` - Filter by status (draft/published)
+- `user_id` - Filter by user ID
+- `my_posts` - Set to `true` to get only current user's posts
+
+#### 10. Create Blog Post
+```
+POST /api/blog-posts
+```
+**Request Body:**
+```json
+{
+    "title": "My First Blog Post",
+    "content": "This is the content of my blog post...",
+    "status": "draft",
+    "slug": "my-first-blog-post"
+}
+```
+
+#### 11. Get Specific Blog Post
+```
+GET /api/blog-posts/{id}
+```
+
+#### 12. Update Blog Post
+```
+PUT /api/blog-posts/{id}
+PATCH /api/blog-posts/{id}
+```
+**Request Body:**
+```json
+{
+    "title": "Updated Blog Post Title",
+    "content": "Updated content...",
+    "status": "published"
+}
+```
+
+#### 13. Delete Blog Post
+```
+DELETE /api/blog-posts/{id}
+```
+
 ## Authentication
 
 This API uses Laravel Sanctum for token-based authentication. To access protected endpoints:
@@ -189,6 +242,32 @@ curl -X GET http://localhost:8000/api/users \
   -H "Authorization: Bearer {your-token}"
 ```
 
+**Create a blog post:**
+```bash
+curl -X POST http://localhost:8000/api/blog-posts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {your-token}" \
+  -d '{"title":"My First Post","content":"This is my first blog post content","status":"draft"}'
+```
+
+**Get all blog posts:**
+```bash
+curl -X GET http://localhost:8000/api/blog-posts \
+  -H "Authorization: Bearer {your-token}"
+```
+
+**Get only published posts:**
+```bash
+curl -X GET "http://localhost:8000/api/blog-posts?status=published" \
+  -H "Authorization: Bearer {your-token}"
+```
+
+**Get current user's posts:**
+```bash
+curl -X GET "http://localhost:8000/api/blog-posts?my_posts=true" \
+  -H "Authorization: Bearer {your-token}"
+```
+
 ## Security Features
 
 - Password hashing using Laravel's Hash facade
@@ -203,9 +282,11 @@ curl -X GET http://localhost:8000/api/users \
 app/
 ├── Http/Controllers/
 │   ├── AuthController.php    # Authentication logic
-│   └── UserController.php    # User CRUD operations
+│   ├── UserController.php    # User CRUD operations
+│   └── BlogPostController.php # Blog post CRUD operations
 ├── Models/
-│   └── User.php             # User model with Sanctum traits
+│   ├── User.php             # User model with Sanctum traits
+│   └── BlogPost.php         # Blog post model
 routes/
 └── api.php                  # API route definitions
 ```
