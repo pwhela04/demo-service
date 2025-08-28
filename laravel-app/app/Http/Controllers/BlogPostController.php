@@ -16,19 +16,28 @@ class BlogPostController extends Controller
     {
         $query = BlogPost::with('user:id,name,email');
         
-        // Filter by status if provided
+        if ($request->user()) {
+            if ($request->has('my_posts') && $request->my_posts) {
+                $query->where('user_id', $request->user()->id);
+            } else {
+                $query->where(function ($q) use ($request) {
+                    $q->whereIn('status', ['published', 'open'])
+                      ->orWhere(function ($subQ) use ($request) {
+                          $subQ->where('status', 'draft')
+                               ->where('user_id', $request->user()->id);
+                      });
+                });
+            }
+        } else {
+            $query->where('status', 'open');
+        }
+        
         if ($request->has('status')) {
             $query->where('status', $request->status);
         }
         
-        // Filter by user if provided
         if ($request->has('user_id')) {
             $query->where('user_id', $request->user_id);
-        }
-        
-        // Get current user's posts only if requested
-        if ($request->has('my_posts') && $request->my_posts) {
-            $query->where('user_id', $request->user()->id);
         }
         
         $posts = $query->orderBy('created_at', 'desc')->paginate(10);
@@ -47,7 +56,7 @@ class BlogPostController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'status' => 'sometimes|in:draft,published',
+            'status' => 'sometimes|in:draft,published,open',
             'slug' => 'sometimes|string|unique:blog_posts,slug',
         ]);
 
@@ -70,8 +79,8 @@ class BlogPostController extends Controller
             $data['slug'] = $request->slug;
         }
 
-        // Set published_at if status is published
-        if ($data['status'] === 'published') {
+        // Set published_at if status is published or open
+        if (in_array($data['status'], ['published', 'open'])) {
             $data['published_at'] = now();
         }
 
@@ -87,7 +96,7 @@ class BlogPostController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $blogPost = BlogPost::with('user:id,name,email')->find($id);
         
@@ -96,6 +105,22 @@ class BlogPostController extends Controller
                 'success' => false,
                 'message' => 'Blog post not found'
             ], 404);
+        }
+
+        if ($blogPost->status === 'draft') {
+            if (!$request->user() || $blogPost->user_id !== $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Blog post not found'
+                ], 404);
+            }
+        } elseif ($blogPost->status === 'published') {
+            if (!$request->user()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required'
+                ], 401);
+            }
         }
 
         return response()->json([
@@ -129,7 +154,7 @@ class BlogPostController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
             'content' => 'sometimes|required|string',
-            'status' => 'sometimes|in:draft,published',
+            'status' => 'sometimes|in:draft,published,open',
             'slug' => 'sometimes|string|unique:blog_posts,slug,' . $id,
         ]);
 
@@ -153,8 +178,8 @@ class BlogPostController extends Controller
         if ($request->has('status')) {
             $updateData['status'] = $request->status;
             
-            // Set published_at if status is being changed to published
-            if ($request->status === 'published' && $blogPost->status !== 'published') {
+            // Set published_at if status is being changed to published or open
+            if (in_array($request->status, ['published', 'open']) && !in_array($blogPost->status, ['published', 'open'])) {
                 $updateData['published_at'] = now();
             }
         }
