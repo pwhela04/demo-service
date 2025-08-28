@@ -2,6 +2,8 @@
 
 A Laravel-based REST API service for user management and blog posts with authentication using Laravel Sanctum.
 
+> **Note**: This service has been verified and tested with PHP 8.1+ and all dependencies are properly configured.
+
 ## Features
 
 - User registration and authentication
