@@ -20,6 +20,9 @@ use App\Http\Controllers\BlogPostController;
 // Public routes (no authentication required)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/users', [UserController::class, 'store']); // User registration
+// Public blog post routes (for 'open' posts accessible to non-authenticated users)
+Route::get('/blog-posts', [BlogPostController::class, 'index']);
+Route::get('/blog-posts/{id}', [BlogPostController::class, 'show']);
 
 // Protected routes (authentication required)
 Route::middleware('auth:sanctum')->group(function () {
