@@ -56,7 +56,7 @@ class UserController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $user = User::find($id);
         
@@ -65,6 +65,13 @@ class UserController extends Controller
                 'success' => false,
                 'message' => 'User not found'
             ], 404);
+        }
+
+        if ($user->id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to access this user data'
+            ], 403);
         }
 
         return response()->json([
@@ -85,6 +92,13 @@ class UserController extends Controller
                 'success' => false,
                 'message' => 'User not found'
             ], 404);
+        }
+
+        if ($user->id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to update this user'
+            ], 403);
         }
 
         $validator = Validator::make($request->all(), [
@@ -133,7 +147,7 @@ class UserController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $user = User::find($id);
         
@@ -144,6 +158,13 @@ class UserController extends Controller
             ], 404);
         }
 
+        if ($user->id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to delete this user'
+            ], 403);
+        }
+
         $user->delete();
 
         return response()->json([
@@ -151,4 +172,4 @@ class UserController extends Controller
             'message' => 'User deleted successfully'
         ]);
     }
-} 
+}  
