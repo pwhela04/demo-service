@@ -13,8 +13,15 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        if (!$request->user()->management) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to access user list'
+            ], 403);
+        }
+
         $users = User::all();
         return response()->json([
             'success' => true,
@@ -67,7 +74,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        if ($user->id !== $request->user()->id) {
+        if ($user->id !== $request->user()->id && !$request->user()->management) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized to access this user data'
@@ -94,7 +101,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        if ($user->id !== $request->user()->id) {
+        if ($user->id !== $request->user()->id && !$request->user()->management) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized to update this user'
@@ -158,7 +165,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        if ($user->id !== $request->user()->id) {
+        if ($user->id !== $request->user()->id && !$request->user()->management) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized to delete this user'
@@ -172,4 +179,4 @@ class UserController extends Controller
             'message' => 'User deleted successfully'
         ]);
     }
-}  
+}    
