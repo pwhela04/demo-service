@@ -15,20 +15,40 @@ class BlogPostController extends Controller
     public function index(Request $request)
     {
         $query = BlogPost::with('user:id,name,email');
+        $user = $request->user();
         
-        // Filter by status if provided
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
+        if ($user) {
+            $query->where(function($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhereIn('status', ['published', 'open']);
+            });
+        } else {
+            $query->where('status', 'open');
         }
         
-        // Filter by user if provided
+        if ($request->has('status')) {
+            $requestedStatus = $request->status;
+            if ($user) {
+                if ($requestedStatus === 'draft') {
+                    $query->where('user_id', $user->id)->where('status', 'draft');
+                } else {
+                    $query->where('status', $requestedStatus);
+                }
+            } else {
+                if ($requestedStatus === 'open') {
+                    $query->where('status', 'open');
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            }
+        }
+        
         if ($request->has('user_id')) {
             $query->where('user_id', $request->user_id);
         }
         
-        // Get current user's posts only if requested
-        if ($request->has('my_posts') && $request->my_posts) {
-            $query->where('user_id', $request->user()->id);
+        if ($request->has('my_posts') && $request->my_posts && $user) {
+            $query->where('user_id', $user->id);
         }
         
         $posts = $query->orderBy('created_at', 'desc')->paginate(10);
@@ -47,7 +67,7 @@ class BlogPostController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'status' => 'sometimes|in:draft,published',
+            'status' => 'sometimes|in:draft,published,open',
             'slug' => 'sometimes|string|unique:blog_posts,slug',
         ]);
 
@@ -87,7 +107,7 @@ class BlogPostController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $blogPost = BlogPost::with('user:id,name,email')->find($id);
         
@@ -98,6 +118,24 @@ class BlogPostController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        
+        if ($blogPost->status === 'draft') {
+            if (!$user || $blogPost->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Blog post not found'
+                ], 404);
+            }
+        } elseif ($blogPost->status === 'published') {
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required'
+                ], 401);
+            }
+        }
+        
         return response()->json([
             'success' => true,
             'data' => $blogPost
@@ -129,7 +167,7 @@ class BlogPostController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
             'content' => 'sometimes|required|string',
-            'status' => 'sometimes|in:draft,published',
+            'status' => 'sometimes|in:draft,published,open',
             'slug' => 'sometimes|string|unique:blog_posts,slug,' . $id,
         ]);
 
